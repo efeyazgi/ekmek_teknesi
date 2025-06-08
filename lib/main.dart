@@ -9,43 +9,22 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
 void main() async {
-  // Flutter binding'lerinin hazır olduğundan emin ol
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Gerekli izinleri uygulamanın en başında iste
-  await _requestInitialPermissions();
+  await Permission.notification.request();
 
-  // Zaman dilimi ve bildirim ayarları
   tz.initializeTimeZones();
   try {
     final String localTimezoneName = tz.local.name;
     tz.setLocalLocation(tz.getLocation(localTimezoneName));
   } catch (e) {
-    // Hata durumunda konsola yazdır (isteğe bağlı)
-    // print("Saat dilimi ayarlanamadı: $e");
+    print("Saat dilimi ayarlanamadı: $e");
   }
 
-  // Bildirim ve tarih formatlama ayarları
   await NotificationHelper().init();
   await initializeDateFormatting('tr_TR', null);
 
-  // Uygulamayı çalıştır
   runApp(const MyApp());
-}
-
-/// Uygulama başlangıcında gerekli izinleri kontrol eder ve ister.
-Future<void> _requestInitialPermissions() async {
-  // Depolama iznini kontrol et ve gerekirse iste.
-  // Bu, özellikle eski Android sürümleri için ve dosya kaydetme özelliğinin
-  // sorunsuz çalışması için önemlidir.
-  if (await Permission.storage.isDenied) {
-    await Permission.storage.request();
-  }
-
-  // Bildirim iznini kontrol et ve gerekirse iste (Android 13+ için zorunlu).
-  if (await Permission.notification.isDenied) {
-    await Permission.notification.request();
-  }
 }
 
 class MyApp extends StatelessWidget {

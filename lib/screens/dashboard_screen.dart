@@ -1,6 +1,7 @@
 import 'package:ekmek_teknesi/models/gider.dart';
 import 'package:ekmek_teknesi/models/uretim_kaydi.dart';
 import 'package:ekmek_teknesi/helpers/preferences_helper.dart';
+import 'package:ekmek_teknesi/helpers/notification_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'add_order_screen.dart';
@@ -16,6 +17,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   late Future<Map<String, dynamic>> _dashboardDataFuture;
+
   @override
   void initState() {
     super.initState();
@@ -43,8 +45,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       DBHelper.getData('giderler'),
       PreferencesHelper.getEkmekFiyati()
     ];
-    final List<Object> results = await Future.wait(futures);
-
+    final results = await Future.wait(futures);
     final siparisler =
         (results[0] as List).map((item) => Siparis.fromMap(item)).toList();
     final uretimler =
@@ -109,15 +110,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
       .push(MaterialPageRoute(builder: (c) => const AddOrderScreen()))
       .then((_) => _verileriYenile());
 
-  void _uretimGirDialogGoster() {/* ... */}
+  void _uretimGirDialogGoster() {
+    final uretimAdetController = TextEditingController();
+    showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              title: const Text('Taze Üretim Ekle'),
+              content: TextField(
+                  controller: uretimAdetController,
+                  keyboardType: TextInputType.number,
+                  autofocus: true,
+                  decoration:
+                      const InputDecoration(labelText: 'Üretilen Ekmek Adedi')),
+              actions: [
+                TextButton(
+                    child: const Text('İptal'),
+                    onPressed: () => Navigator.of(ctx).pop()),
+                ElevatedButton(
+                    child: const Text('Kaydet'),
+                    onPressed: () {
+                      final girilenAdet =
+                          int.tryParse(uretimAdetController.text);
+                      if (girilenAdet == null || girilenAdet <= 0) return;
+                      final yeniUretim = UretimKaydi(
+                          id: const Uuid().v4(),
+                          tarih: DateTime.now(),
+                          adet: girilenAdet);
+                      DBHelper.insert('uretim_kayitlari', yeniUretim.toMap())
+                          .then((_) {
+                        Navigator.of(ctx).pop();
+                        _verileriYenile();
+                      });
+                    }),
+              ],
+            ));
+  }
 
   void _yeniGiderEklemeSayfasiniAc() => Navigator.of(context)
       .push(MaterialPageRoute(builder: (c) => const AddExpenseScreen()))
       .then((_) => _verileriYenile());
 
   void _hizliSatisDialogGoster() async {
-    final data = await _verileriHesapla();
-    final mevcutStok = data['mevcutStok'] as int;
+    final data = await _dashboardDataFuture;
+    final mevcutStok = data['mevcutStok'] ?? 0;
+
     if (mevcutStok <= 0) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -125,6 +161,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             backgroundColor: Colors.red));
       return;
     }
+
     final adetController = TextEditingController(text: '1');
     if (!mounted) return;
     showDialog(
@@ -146,7 +183,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     onPressed: () async {
                       final adet = int.tryParse(adetController.text);
                       if (adet == null || adet <= 0) return;
-                      if (adet > mevcutStok) return;
+                      if (adet > mevcutStok) {
+                        if (mounted)
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text(
+                                  'Stoktan fazla satış yapılamaz! ($mevcutStok adet mevcut)'),
+                              backgroundColor: Colors.red));
+                        return;
+                      }
                       final hizliSatisSiparisi = Siparis(
                           id: const Uuid().v4(),
                           musteriAdi: 'Hızlı Satış',
@@ -157,6 +201,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           satilanEkmekTuru: EkmekTuru.Taze);
                       await DBHelper.insert(
                           'siparisler', hizliSatisSiparisi.toMap());
+
+                      final areNotificationsEnabled =
+                          await PreferencesHelper.getNotificationsEnabled();
+                      if (areNotificationsEnabled) {
+                        final threshold =
+                            await PreferencesHelper.getLowStockThreshold();
+                        final yeniStok = mevcutStok - adet;
+                        if (yeniStok < threshold && mevcutStok >= threshold) {
+                          await NotificationHelper()
+                              .showLowStockNotification(yeniStok);
+                        }
+                      }
+
                       if (mounted) Navigator.of(ctx).pop();
                       _verileriYenile();
                     }),

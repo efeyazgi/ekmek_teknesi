@@ -19,11 +19,12 @@ val flutterVersionName: String = localProperties.getProperty("flutter.versionNam
 
 android {
     namespace = "com.example.ekmek_teknesi"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973"
+    // Hata logunda istenen SDK sürümüne yükseltildi.
+    compileSdk = 35 
+    // Hata logunda istenen NDK sürümüne yükseltildi.
+    ndkVersion = "27.0.12077973" 
 
     compileOptions {
-        // Bildirim paketi için gerekli olan desugaring özelliği.
         isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
@@ -41,8 +42,8 @@ android {
 
     defaultConfig {
         applicationId = "com.example.ekmek_teknesi"
-        minSdk = 21 // flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        minSdk = 21 
+        targetSdk = 34
         versionCode = flutterVersionCode.toInt()
         versionName = flutterVersionName
     }
@@ -50,6 +51,11 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }
@@ -59,6 +65,5 @@ flutter {
 }
 
 dependencies {
-    // Bildirim paketi için gerekli olan desugaring kütüphanesi.
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }

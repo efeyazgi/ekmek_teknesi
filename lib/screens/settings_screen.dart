@@ -1,14 +1,11 @@
 import 'dart:io';
-import 'dart:typed_data'; // YENİ EKLENDİ: Byte işlemleri için
 import 'package:ekmek_teknesi/helpers/notification_helper.dart';
 import 'package:ekmek_teknesi/helpers/preferences_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart';
-import 'package:file_saver/file_saver.dart'; // YENİ EKLENDİ: file_saver paketi
+import 'package:share_plus/share_plus.dart'; // YENİ EKLENDİ
 import '../helpers/db_helper.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -38,7 +35,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _ayarlariYukle() async {
     setState(() => _isLoading = true);
-
     final ekmekFiyati = await PreferencesHelper.getEkmekFiyati();
     final unFiyati = await PreferencesHelper.getUnFiyati();
     final notificationsEnabled =
@@ -89,58 +85,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (newTime != null) setState(() => _reportTime = newTime);
   }
 
-  // --- BU METOT TAMAMEN GÜNCELLENDİ ---
+  // GÜNCELLENDİ: Bu metot artık share_plus paketini kullanıyor.
   Future<void> _verileriDisaAktar() async {
-    // Depolama izni hala eski Android sürümleri için istenebilir.
-    var status = await Permission.storage.status;
-    if (!status.isGranted) {
-      status = await Permission.storage.request();
-    }
+    if (mounted)
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Yedek dosyası oluşturuluyor...')));
+    try {
+      final dbPath = await DBHelper.getDatabasePath();
+      final timestamp = DateFormat('yyyy-MM-dd_HH-mm').format(DateTime.now());
+      final fileName = 'ekmek_teknemiz_yedek_$timestamp.db';
 
-    if (status.isGranted) {
-      try {
-        // 1. Yedeklenecek veritabanı dosyasının yolunu al ve byte olarak oku.
-        final dbPath = await DBHelper.getDatabasePath();
-        final dbFile = File(dbPath);
-        final Uint8List fileBytes = await dbFile.readAsBytes();
-
-        // 2. Yedek dosyası için bir isim oluştur.
-        final timestamp = DateFormat('yyyy-MM-dd_HH-mm').format(DateTime.now());
-        final fileName = 'ekmek_teknemiz_yedek_$timestamp';
-
-        // 3. file_saver kullanarak kullanıcıya "Farklı Kaydet" diyaloğunu göster.
-        String? savedPath = await FileSaver.instance.saveFile(
-          name: fileName,
-          bytes: fileBytes,
-          ext: 'db', // dosya uzantısı
-          mimeType: MimeType.other, // dosya tipi
-        );
-
-        if (mounted) {
-          if (savedPath != null) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(
-                    'Yedekleme başarılı! Dosya şuraya kaydedildi: $savedPath'),
-                duration: const Duration(seconds: 5)));
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                content: Text('Yedekleme işlemi iptal edildi.'),
-                backgroundColor: Colors.orange));
-          }
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text('Yedekleme başarısız: $e'),
-              backgroundColor: Colors.red));
-        }
-      }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Dosya kaydetmek için depolama izni verilmedi.'),
+      // Dosyayı XFile olarak paylaşıyoruz.
+      final xFile = XFile(dbPath, name: fileName);
+      await Share.shareXFiles([xFile], text: 'Ekmek Teknesi Veri Yedeği');
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Yedekleme başarısız: $e'),
             backgroundColor: Colors.red));
-      }
     }
   }
 
@@ -241,25 +203,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
       },
       body: Padding(
         padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 16.0),
-        child: Column(children: [
-          TextField(
-              controller: _ekmekFiyatiController,
-              decoration: const InputDecoration(
-                  labelText: 'Ekmek Satış Fiyatı (TL)',
-                  border: OutlineInputBorder()),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          _buildTextFieldWithLabel(
+              'Ekmek Satış Fiyatı (TL)', _ekmekFiyatiController,
+              isDecimal: true),
           const SizedBox(height: 16),
-          TextField(
-              controller: _unFiyatiController,
-              decoration: const InputDecoration(
-                  labelText: 'Un Çuval Fiyatı (TL)',
-                  border: OutlineInputBorder()),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true)),
+          _buildTextFieldWithLabel('Un Çuval Fiyatı (TL)', _unFiyatiController,
+              isDecimal: true),
         ]),
       ),
       isExpanded: _isFiyatExpanded,
+    );
+  }
+
+  Widget _buildTextFieldWithLabel(
+      String label, TextEditingController controller,
+      {bool isDecimal = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4.0, bottom: 4.0),
+          child: Text(label, style: Theme.of(context).textTheme.bodySmall),
+        ),
+        TextField(
+          controller: controller,
+          decoration: const InputDecoration(border: OutlineInputBorder()),
+          keyboardType: isDecimal
+              ? const TextInputType.numberWithOptions(decimal: true)
+              : TextInputType.number,
+          inputFormatters: isDecimal
+              ? [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))]
+              : [FilteringTextInputFormatter.digitsOnly],
+        ),
+      ],
     );
   }
 
@@ -279,13 +256,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               value: _notificationsEnabled,
               onChanged: (val) => setState(() => _notificationsEnabled = val)),
           const Divider(),
-          TextField(
-              controller: _stokEsikController,
-              decoration: const InputDecoration(
-                  labelText: 'Düşük Stok Eşiği (Adet)',
-                  border: OutlineInputBorder()),
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly]),
+          _buildTextFieldWithLabel(
+              'Düşük Stok Eşiği (Adet)', _stokEsikController),
           const SizedBox(height: 16),
           ListTile(
               title: const Text('Günlük Rapor Saati'),
@@ -319,12 +291,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 16.0),
         child: Column(children: [
           ListTile(
-              leading: const Icon(Icons.download_for_offline),
+              leading: const Icon(Icons.ios_share),
               title: const Text('Verileri Dışa Aktar (Yedekle)'),
               onTap: _verileriDisaAktar,
               contentPadding: EdgeInsets.zero),
           ListTile(
-              leading: const Icon(Icons.upload_file),
+              leading: const Icon(Icons.file_open_outlined),
               title: const Text('Verileri İçe Aktar (Geri Yükle)'),
               onTap: _verileriIceAktar,
               contentPadding: EdgeInsets.zero),
