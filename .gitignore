@@ -1,0 +1,52 @@
+# Flutter/Dart için temel .gitignore
+
+# Dart/Pub
+.dart_tool/
+.packages
+.pub-cache/
+build/
+.idea/
+*.iml
+
+# Flutter-specific
+.flutter-plugins
+.flutter-plugins-dependencies
+.flutter-plugins
+.flutter-plugins-dependencies
+.melos_tool/
+generated_plugin_registrant.dart
+
+# IDE'ler
+.vscode/
+*.swp
+
+# iOS
+ios/Pods/
+ios/Runner.xcworkspace/
+ios/Flutter/Flutter.framework/
+ios/Flutter/Flutter.podspec
+ios/ServiceDefinitions.json
+
+# Android
+android/.gradle/
+android/local.properties
+android/app/debug/
+android/app/release/
+android/key.properties
+
+# Web
+web/.dart_tool/
+
+# macOS
+macos/Flutter/ephemeral/
+
+# Windows
+windows/flutter/ephemeral/
+
+# Linux
+linux/flutter/ephemeral/
+
+# Other
+*.log
+*.tmp
+*.lock
