@@ -1,3 +1,5 @@
+import 'package:uuid/uuid.dart';
+
 enum SiparisDurum { Bekliyor, TeslimEdildi, Iptal }
 
 enum EkmekTuru { Taze, Dunku }
@@ -9,23 +11,27 @@ class Siparis {
   final int ekmekAdedi;
   final DateTime teslimTarihi;
   final bool odemeAlindiMi;
+  final double tutar;
   final String? notlar;
   final SiparisDurum durum;
-  final EkmekTuru? satilanEkmekTuru; // YENİ EKLENDİ
+  final EkmekTuru? satilanEkmekTuru;
+  final String? aciklama;
 
   Siparis({
-    required this.id,
+    String? id,
     this.musteriId,
     required this.musteriAdi,
     required this.ekmekAdedi,
     required this.teslimTarihi,
-    required this.odemeAlindiMi,
+    required this.tutar,
+    this.odemeAlindiMi = false,
     this.notlar,
     this.durum = SiparisDurum.Bekliyor,
-    this.satilanEkmekTuru, // YENİ EKLENDİ
-  });
+    this.satilanEkmekTuru,
+    this.aciklama,
+  }) : id = id ?? const Uuid().v4();
 
-  Map<String, Object?> toMap() {
+  Map<String, dynamic> toMap() {
     return {
       'id': id,
       'musteriId': musteriId,
@@ -33,13 +39,15 @@ class Siparis {
       'ekmekAdedi': ekmekAdedi,
       'teslimTarihi': teslimTarihi.toIso8601String(),
       'odemeAlindiMi': odemeAlindiMi ? 1 : 0,
+      'tutar': tutar,
       'notlar': notlar,
       'durum': durum.name,
-      'satilanEkmekTuru': satilanEkmekTuru?.name, // YENİ EKLENDİ
+      'satilanEkmekTuru': satilanEkmekTuru?.name,
+      'aciklama': aciklama,
     };
   }
 
-  static Siparis fromMap(Map<String, dynamic> map) {
+  factory Siparis.fromMap(Map<String, dynamic> map) {
     return Siparis(
       id: map['id'],
       musteriId: map['musteriId'],
@@ -47,17 +55,17 @@ class Siparis {
       ekmekAdedi: map['ekmekAdedi'],
       teslimTarihi: DateTime.parse(map['teslimTarihi']),
       odemeAlindiMi: map['odemeAlindiMi'] == 1,
+      tutar: map['tutar'] ?? 0.0,
       notlar: map['notlar'],
       durum: SiparisDurum.values.firstWhere(
         (e) => e.name == map['durum'],
-        orElse: () => SiparisDurum.Bekliyor,
       ),
-      // YENİ EKLENDİ: Veritabanındaki metni tekrar enum'a çeviriyoruz.
       satilanEkmekTuru: map['satilanEkmekTuru'] != null
           ? EkmekTuru.values.firstWhere(
               (e) => e.name == map['satilanEkmekTuru'],
             )
           : null,
+      aciklama: map['aciklama'],
     );
   }
 }

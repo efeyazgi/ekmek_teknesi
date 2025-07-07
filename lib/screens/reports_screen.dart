@@ -29,14 +29,24 @@ class ReportsScreen extends StatefulWidget {
   State<ReportsScreen> createState() => _ReportsScreenState();
 }
 
+enum _LeaderboardSortType { byBreadCount, byOrderCount }
+
 class _ReportsScreenState extends State<ReportsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  Future<Map<String, dynamic>>? _reportDataFuture;
+  _LeaderboardSortType _sortType = _LeaderboardSortType.byBreadCount;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
+    _reportDataFuture = _getReportData();
+    _tabController.addListener(() {
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   @override
@@ -45,22 +55,244 @@ class _ReportsScreenState extends State<ReportsScreen>
     super.dispose();
   }
 
+  Future<Map<String, dynamic>> _getReportData() async {
+    final siparislerData = await DBHelper.getData('siparisler');
+    final giderlerData = await DBHelper.getData('giderler');
+
+    final siparisler =
+        siparislerData.map((item) => Siparis.fromMap(item)).toList();
+    final giderler = giderlerData.map((item) => Gider.fromMap(item)).toList();
+
+    // Müşteri Lider Tablosu Verisi
+    final musteriVerisi = <String, Map<String, int>>{};
+    for (var siparis in siparisler) {
+      if (siparis.musteriAdi.toLowerCase() == 'hızlı satış') continue;
+
+      if (!musteriVerisi.containsKey(siparis.musteriAdi)) {
+        musteriVerisi[siparis.musteriAdi] = {'ekmek': 0, 'siparis': 0};
+      }
+      musteriVerisi[siparis.musteriAdi]!['ekmek'] =
+          (musteriVerisi[siparis.musteriAdi]!['ekmek'] ?? 0) +
+              siparis.ekmekAdedi;
+      musteriVerisi[siparis.musteriAdi]!['siparis'] =
+          (musteriVerisi[siparis.musteriAdi]!['siparis'] ?? 0) + 1;
+    }
+
+    return {
+      'siparisler': siparisler,
+      'giderler': giderler,
+      'musteriVerisi': musteriVerisi,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: TabBar(
+        toolbarHeight: 0.0, // Eklendi
+        // title: const Text('Raporlar'), // Bu satır kaldırıldı
+        bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.account_balance), text: 'Mali Özet'),
-            Tab(icon: Icon(Icons.leaderboard), text: 'Müşteri Lider Tablosu'),
+          isScrollable: false, // Değiştirildi
+          labelColor: theme.colorScheme.onPrimary,
+          unselectedLabelColor: theme.colorScheme.onPrimary.withOpacity(0.7),
+          indicatorColor: theme.colorScheme.onPrimary,
+          tabs: [
+            Tab(
+              icon: Icon(Icons.leaderboard),
+              text: 'Müşteri Lider Tablosu',
+            ),
+            Tab(
+              icon: Icon(Icons.pie_chart),
+              text: 'Mali Özet',
+            ),
+            Tab(
+              icon: Icon(Icons.analytics),
+              text: 'İstatistikler',
+            ),
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: const [_MaliRapor(), _MusteriLiderTablosu()],
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: _reportDataFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('Hata: ${snapshot.error}'));
+          }
+          if (!snapshot.hasData || snapshot.data == null) {
+            return const Center(child: Text('Veri bulunamadı.'));
+          }
+
+          final data = snapshot.data!;
+          final musteriVerisi =
+              data['musteriVerisi'] as Map<String, Map<String, int>>;
+
+          return TabBarView(
+            controller: _tabController,
+            children: [
+              _buildLeaderboard(musteriVerisi),
+              _buildFinancialSummary(data['siparisler'], data['giderler']),
+              _buildStatistics(data['siparisler'], data['giderler']),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildLeaderboard(Map<String, Map<String, int>> musteriVerisi) {
+    final siralamaListesi = musteriVerisi.entries.toList();
+    if (_sortType == _LeaderboardSortType.byBreadCount) {
+      siralamaListesi
+          .sort((a, b) => b.value['ekmek']!.compareTo(a.value['ekmek']!));
+    } else {
+      siralamaListesi
+          .sort((a, b) => b.value['siparis']!.compareTo(a.value['siparis']!));
+    }
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: SegmentedButton<_LeaderboardSortType>(
+            segments: const [
+              ButtonSegment(
+                  value: _LeaderboardSortType.byBreadCount,
+                  label: Text('Ekmek Adedi')),
+              ButtonSegment(
+                  value: _LeaderboardSortType.byOrderCount,
+                  label: Text('Sipariş Sayısı')),
+            ],
+            selected: {_sortType},
+            onSelectionChanged: (newSelection) {
+              setState(() {
+                _sortType = newSelection.first;
+              });
+            },
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: siralamaListesi.length,
+            itemBuilder: (context, index) {
+              final musteriAdi = siralamaListesi[index].key;
+              final veri = siralamaListesi[index].value;
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    child: Text('${index + 1}'),
+                  ),
+                  title: Text(musteriAdi),
+                  trailing: Text(
+                    '${veri['ekmek']} Ekmek / ${veri['siparis']} Sipariş',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFinancialSummary(
+      List<Siparis> siparisler, List<Gider> giderler) {
+    double toplamGelir = siparisler.fold(0,
+        (sum, s) => sum + (s.durum == SiparisDurum.TeslimEdildi ? s.tutar : 0));
+    double toplamGider = giderler.fold(0, (sum, g) => sum + g.tutar);
+    double kar = toplamGelir - toplamGider;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSummaryCard(
+              'Toplam Gelir', '₺${toplamGelir.toStringAsFixed(2)}',
+              icon: Icons.arrow_upward, color: Colors.green),
+          _buildSummaryCard(
+              'Toplam Gider', '₺${toplamGider.toStringAsFixed(2)}',
+              icon: Icons.arrow_downward, color: Colors.red),
+          _buildSummaryCard('Net Kar', '₺${kar.toStringAsFixed(2)}',
+              icon: Icons.account_balance_wallet,
+              color: kar >= 0 ? Colors.blue : Colors.orange),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatistics(List<Siparis> siparisler, List<Gider> giderler) {
+    final now = DateTime.now();
+    final currentMonth = DateTime(now.year, now.month);
+
+    final aylikSatislar = siparisler
+        .where((s) =>
+            s.durum == SiparisDurum.TeslimEdildi &&
+            s.teslimTarihi.isAfter(currentMonth))
+        .toList();
+
+    final toplamSatisAdedi =
+        siparisler.where((s) => s.durum == SiparisDurum.TeslimEdildi).length;
+
+    // Toplam satılan ekmek adedi (Tüm Zamanlar)
+    final toplamSatilanEkmekAdedi = siparisler
+        .where((s) => s.durum == SiparisDurum.TeslimEdildi)
+        .fold<int>(0, (sum, s) => sum + s.ekmekAdedi);
+
+    // Bu ay satılan ekmek adedi
+    final aylikSatilanEkmekAdedi =
+        aylikSatislar.fold<int>(0, (sum, s) => sum + s.ekmekAdedi);
+
+    final aylikUnGiderleri = giderler
+        .where(
+            (g) => g.giderTuru == GiderTuru.Un && g.tarih.isAfter(currentMonth))
+        .fold<double>(0.0, (sum, g) => sum + g.tutar);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSummaryCard(
+              'Bu Ayki Sipariş Sayısı', '${aylikSatislar.length} Adet',
+              icon: Icons.calendar_month, color: Colors.purple),
+          _buildSummaryCard(
+              'Bu Ay Satılan Ekmek', '$aylikSatilanEkmekAdedi Adet',
+              icon: Icons.bakery_dining_outlined,
+              color: Colors.orange), // Yeni kart
+          _buildSummaryCard(
+              'Toplam Sipariş Sayısı (Tüm Zamanlar)', '$toplamSatisAdedi Adet',
+              icon: Icons.receipt_long, color: Colors.teal),
+          _buildSummaryCard('Toplam Satılan Ekmek (Tüm Zamanlar)',
+              '$toplamSatilanEkmekAdedi Adet',
+              icon: Icons.bakery_dining, color: Colors.deepOrange), // Yeni kart
+          _buildSummaryCard(
+              'Bu Aylık Un Gideri', '₺${aylikUnGiderleri.toStringAsFixed(2)}',
+              icon: Icons.shopping_bag, color: Colors.brown),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard(String title, String value,
+      {required IconData icon, required Color color}) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: ListTile(
+        leading: Icon(icon, color: color, size: 40),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(value,
+            style: Theme.of(context)
+                .textTheme
+                .headlineSmall!
+                .copyWith(color: color)),
       ),
     );
   }
@@ -91,13 +323,11 @@ class _MaliRaporState extends State<_MaliRapor> {
     final giderlerData = await DBHelper.getData('giderler');
     final uretimlerData = await DBHelper.getData('uretim_kayitlari');
 
-    final siparisler = siparislerData
-        .map((item) => Siparis.fromMap(item))
-        .toList();
+    final siparisler =
+        siparislerData.map((item) => Siparis.fromMap(item)).toList();
     final giderler = giderlerData.map((item) => Gider.fromMap(item)).toList();
-    final uretimler = uretimlerData
-        .map((item) => UretimKaydi.fromMap(item))
-        .toList();
+    final uretimler =
+        uretimlerData.map((item) => UretimKaydi.fromMap(item)).toList();
 
     final buAykiTahsilatlar = siparisler
         .where(
@@ -293,9 +523,8 @@ class __MusteriLiderTablosuState extends State<_MusteriLiderTablosu> {
     final ayinIlkGunu = DateTime(ay.year, ay.month, 1);
     final sonrakiAyinIlkGunu = DateTime(ay.year, ay.month + 1, 1);
     final siparislerData = await DBHelper.getData('siparisler');
-    final siparisler = siparislerData
-        .map((item) => Siparis.fromMap(item))
-        .toList();
+    final siparisler =
+        siparislerData.map((item) => Siparis.fromMap(item)).toList();
     final buAykiSiparisler = siparisler
         .where(
           (s) =>
@@ -439,8 +668,8 @@ class __MusteriLiderTablosuState extends State<_MusteriLiderTablosu> {
                   // GÜNCELLENDİ: Gösterilecek metin sıralama türüne göre değişiyor.
                   final trailingText =
                       _siralamaTuru == MusteriSiralamaTuru.siparisSayisi
-                      ? '${musteri.siparisSayisi} Sipariş'
-                      : '${musteri.toplamEkmek} Ekmek';
+                          ? '${musteri.siparisSayisi} Sipariş'
+                          : '${musteri.toplamEkmek} Ekmek';
 
                   return Card(
                     margin: const EdgeInsets.symmetric(

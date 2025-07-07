@@ -1,3 +1,4 @@
+import 'package:ekmek_teknesi/helpers/preferences_helper.dart';
 import 'package:ekmek_teknesi/models/musteri.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -36,8 +37,12 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
     }
   }
 
-  void _kaydetmeyiDene() {
+  void _kaydetmeyiDene() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final ekmekFiyati = await PreferencesHelper.getEkmekFiyati();
+    final tutar = _ekmekAdedi * ekmekFiyati;
+
     if (_isEditing) {
       final guncellenenSiparis = {
         'musteriAdi': _seciliMusteri?.adSoyad ?? _musteriAdiController.text,
@@ -46,6 +51,7 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
         'teslimTarihi': _seciliTarih.toIso8601String(),
         'odemeAlindiMi': _odemeAlindi ? 1 : 0,
         'notlar': _notlarController.text,
+        'tutar': tutar,
       };
       DBHelper.update('siparisler', widget.siparis!.id, guncellenenSiparis);
     } else {
@@ -55,19 +61,23 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
         musteriAdi: _seciliMusteri?.adSoyad ?? _musteriAdiController.text,
         ekmekAdedi: _ekmekAdedi,
         teslimTarihi: _seciliTarih,
+        tutar: tutar,
         odemeAlindiMi: _odemeAlindi,
         notlar: _notlarController.text,
         durum: SiparisDurum.Bekliyor,
       );
       DBHelper.insert('siparisler', yeniSiparis.toMap());
     }
+    if (!mounted) return;
     Navigator.of(context).pop();
   }
 
   void _musteriSecDialogGoster() async {
     final musteriler = (await DBHelper.getData(
       'musteriler',
-    )).map((e) => Musteri.fromMap(e)).toList();
+    ))
+        .map((e) => Musteri.fromMap(e))
+        .toList();
     if (!mounted) return;
     final secilen = await showDialog<Musteri>(
       context: context,
@@ -136,9 +146,7 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                       ),
                     ),
                     IconButton(
-                      icon: Icon(
-                        _seciliMusteri != null ? Icons.clear : Icons.search,
-                      ),
+                      icon: const Icon(Icons.person_search),
                       tooltip: _seciliMusteri != null
                           ? 'Seçimi Temizle'
                           : 'Kayıtlı Müşterilerden Seç',

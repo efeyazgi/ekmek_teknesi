@@ -62,6 +62,30 @@ class _ExpensesListScreenState extends State<ExpensesListScreen> {
       );
   }
 
+  IconData _getGiderIcon(GiderTuru tur) {
+    switch (tur) {
+      case GiderTuru.Un:
+        return Icons.grain_outlined;
+      case GiderTuru.Maya:
+        return Icons.bubble_chart_outlined;
+      case GiderTuru.OdunSaman: // Güncellendi
+        return Icons.local_fire_department_outlined;
+      case GiderTuru.ElektrikFaturasi: // Güncellendi
+        return Icons.electrical_services_outlined; // Daha spesifik bir ikon
+      case GiderTuru.SuFaturasi:
+        return Icons.water_drop_outlined;
+      case GiderTuru.Kira:
+        return Icons.house_outlined;
+      case GiderTuru.Ambalaj:
+        return Icons.inventory_2_outlined;
+      case GiderTuru.Tuz:
+        return Icons.eco_outlined; // Tuz için bir ikon (örnek)
+      case GiderTuru.Diger:
+      default:
+        return Icons.category_outlined;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -73,28 +97,34 @@ class _ExpensesListScreenState extends State<ExpensesListScreen> {
       body: FutureBuilder<List<Gider>>(
         future: _giderlerFuture,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting)
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
-          if (snapshot.hasError)
+          }
+          if (snapshot.hasError) {
             return Center(child: Text('Hata: ${snapshot.error}'));
-          if (!snapshot.hasData || snapshot.data!.isEmpty)
+          }
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const Center(
               child: Text(
                 'Henüz gider eklenmemiş.',
                 style: TextStyle(fontSize: 18, color: Colors.grey),
               ),
             );
+          }
           final giderler = snapshot.data!;
           return ListView.builder(
+            padding: const EdgeInsets.only(bottom: 80), // FAB için boşluk
             itemCount: giderler.length,
             itemBuilder: (ctx, index) {
               final gider = giderler[index];
               return Dismissible(
                 key: ValueKey(gider.id),
                 background: Container(
-                  color: Theme.of(context).colorScheme.error,
+                  color: Theme.of(context).colorScheme.error.withOpacity(0.75),
                   alignment: Alignment.centerRight,
                   padding: const EdgeInsets.only(right: 20),
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: const Icon(
                     Icons.delete,
                     color: Colors.white,
@@ -106,38 +136,55 @@ class _ExpensesListScreenState extends State<ExpensesListScreen> {
                 child: Card(
                   margin: const EdgeInsets.symmetric(
                     horizontal: 16,
-                    vertical: 8,
+                    vertical: 6, // Dikey boşluk azaltıldı
+                  ),
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
                     onTap: () => _giderDuzenle(gider),
-                    leading: CircleAvatar(
-                      radius: 30,
-                      backgroundColor: Theme.of(
-                        context,
-                      ).colorScheme.primaryContainer,
-                      child: Padding(
-                        padding: const EdgeInsets.all(6.0),
-                        child: FittedBox(
-                          child: Text(
-                            '₺${gider.tutar.toStringAsFixed(0)}',
-                            style: TextStyle(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onPrimaryContainer,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
+                    leading: Icon(
+                      _getGiderIcon(gider.giderTuru),
+                      size: 36,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                     title: Text(
                       giderTuruToString(gider.giderTuru),
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
-                    subtitle: Text(
-                      '${gider.aciklama}\n${DateFormat.yMMMMd('tr_TR').format(gider.tarih)}',
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (gider.aciklama.isNotEmpty)
+                          Padding(
+                            padding:
+                                const EdgeInsets.only(top: 2.0, bottom: 4.0),
+                            child: Text(
+                              gider.aciklama,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ),
+                        Text(
+                          DateFormat.yMMMMd('tr_TR').format(gider.tarih),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
                     ),
-                    isThreeLine: gider.aciklama.isNotEmpty,
+                    trailing: Text(
+                      '₺${gider.tutar.toStringAsFixed(2)}',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                    ),
+                    isThreeLine:
+                        gider.aciklama.isNotEmpty, // Dinamik olarak ayarlanacak
                   ),
                 ),
               );

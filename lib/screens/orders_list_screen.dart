@@ -6,6 +6,9 @@ import '../helpers/db_helper.dart';
 import '../models/siparis.dart';
 import '../helpers/notification_helper.dart';
 import '../helpers/preferences_helper.dart';
+import '../models/uretim_kaydi.dart';
+import '../models/stok_hareketi.dart';
+import '../helpers/stok_helper.dart';
 
 class OrdersListScreen extends StatefulWidget {
   const OrdersListScreen({super.key});
@@ -17,6 +20,7 @@ class _OrdersListScreenState extends State<OrdersListScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   Future<List<Siparis>>? _siparislerFuture;
+  final Map<String, int> _stokDurumu = {'tazeStok': 0, 'dunkuStok': 0};
 
   @override
   void initState() {
@@ -48,9 +52,21 @@ class _OrdersListScreenState extends State<OrdersListScreen>
   }
 
   void _listeyiYenile() {
+    _getStok().then((_) {
+      if (mounted) {
+        setState(() {
+          _siparislerFuture = _verileriCek();
+        });
+      }
+    });
+  }
+
+  Future<void> _getStok() async {
+    final stoklar = await StokHelper.calculateStock();
     if (mounted) {
       setState(() {
-        _siparislerFuture = _verileriCek();
+        _stokDurumu['tazeStok'] = stoklar['tazeStok'] ?? 0;
+        _stokDurumu['dunkuStok'] = stoklar['dunkuStok'] ?? 0;
       });
     }
   }
@@ -68,69 +84,8 @@ class _OrdersListScreenState extends State<OrdersListScreen>
   }
 
   Future<void> _siparisDurumunuGuncelle(Siparis siparis) async {
-    // Stok ve ayar verilerini çek
-    final futures = [
-      DBHelper.getData('siparisler'),
-      DBHelper.getData('uretim_kayitlari'),
-      PreferencesHelper.getNotificationsEnabled(),
-      PreferencesHelper.getLowStockThreshold(),
-    ];
-    final results = await Future.wait(futures);
-
-    final siparisler =
-        (results[0] as List).map((item) => Siparis.fromMap(item)).toList();
-    final uretimler =
-        (results[1] as List).map((item) => UretimKaydi.fromMap(item)).toList();
-    final areNotificationsEnabled = results[2] as bool;
-    final threshold = results[3] as int;
-
-    // Stokları hesapla
-    final bugun = DateTime.now();
-    final dun = bugun.subtract(const Duration(days: 1));
-
-    final bugunUretilen = uretimler
-        .where((u) =>
-            u.tarih.year == bugun.year &&
-            u.tarih.month == bugun.month &&
-            u.tarih.day == bugun.day)
-        .fold(0, (t, u) => t + u.adet);
-    final dunUretilen = uretimler
-        .where((u) =>
-            u.tarih.year == dun.year &&
-            u.tarih.month == dun.month &&
-            u.tarih.day == dun.day)
-        .fold(0, (t, u) => t + u.adet);
-
-    final teslimEdilenler =
-        siparisler.where((s) => s.durum == SiparisDurum.TeslimEdildi).toList();
-
-    final bugunTazeSatilan = teslimEdilenler
-        .where((s) =>
-            s.satilanEkmekTuru == EkmekTuru.Taze &&
-            s.teslimTarihi.year == bugun.year &&
-            s.teslimTarihi.month == bugun.month &&
-            s.teslimTarihi.day == bugun.day)
-        .fold(0, (t, s) => t + s.ekmekAdedi);
-    final dunTazeSatilan = teslimEdilenler
-        .where((s) =>
-            s.satilanEkmekTuru == EkmekTuru.Taze &&
-            s.teslimTarihi.year == dun.year &&
-            s.teslimTarihi.month == dun.month &&
-            s.teslimTarihi.day == dun.day)
-        .fold(0, (t, s) => t + s.ekmekAdedi);
-
-    final duneDevreden = dunUretilen - dunTazeSatilan;
-
-    final bugunDunkuSatilan = teslimEdilenler
-        .where((s) =>
-            s.satilanEkmekTuru == EkmekTuru.Dunku &&
-            s.teslimTarihi.year == bugun.year &&
-            s.teslimTarihi.month == bugun.month &&
-            s.teslimTarihi.day == bugun.day)
-        .fold(0, (t, s) => t + s.ekmekAdedi);
-
-    final tazeStok = bugunUretilen - bugunTazeSatilan;
-    final dunkuStok = duneDevreden - bugunDunkuSatilan;
+    final tazeStok = _stokDurumu['tazeStok'] ?? 0;
+    final dunkuStok = _stokDurumu['dunkuStok'] ?? 0;
 
     if (!mounted) return;
 
@@ -157,17 +112,18 @@ class _OrdersListScreenState extends State<OrdersListScreen>
 
     if (secilenTur == null) return;
 
-    final Map<String, Object?> guncellenecekVeri = {
+    final guncellenecekVeri = {
       'durum': SiparisDurum.TeslimEdildi.name,
-      'satilanEkmekTuru': secilenTur.name
+      'satilanEkmekTuru': secilenTur.name,
+      'odemeAlindiMi': 1,
     };
-    if (!siparis.odemeAlindiMi) {
-      guncellenecekVeri['odemeAlindiMi'] = 1;
-    }
 
     await DBHelper.update('siparisler', siparis.id, guncellenecekVeri);
 
+    final areNotificationsEnabled =
+        await PreferencesHelper.getNotificationsEnabled();
     if (areNotificationsEnabled) {
+      final threshold = await PreferencesHelper.getLowStockThreshold();
       final yeniTazeStok =
           tazeStok - (secilenTur == EkmekTuru.Taze ? siparis.ekmekAdedi : 0);
       if (yeniTazeStok < threshold && tazeStok >= threshold) {
@@ -175,6 +131,12 @@ class _OrdersListScreenState extends State<OrdersListScreen>
       }
     }
     _listeyiYenile();
+  }
+
+  bool _isSameDay(DateTime date1, DateTime date2) {
+    return date1.year == date2.year &&
+        date1.month == date2.month &&
+        date1.day == date2.day;
   }
 
   void _siparisDuzenle(Siparis siparis) {
@@ -200,21 +162,30 @@ class _OrdersListScreenState extends State<OrdersListScreen>
         child: FutureBuilder<List<Siparis>>(
           future: _siparislerFuture,
           builder: (context, snapshot) {
-            int bekleyenSayisi = 0;
+            int bekleyenEkmekSayisi = 0;
             if (snapshot.hasData) {
               final bugun = DateTime.now();
-              bekleyenSayisi = snapshot.data!
+              bekleyenEkmekSayisi = snapshot.data!
                   .where((s) =>
                       s.durum == SiparisDurum.Bekliyor &&
                       s.teslimTarihi.year == bugun.year &&
                       s.teslimTarihi.month == bugun.month &&
                       s.teslimTarihi.day == bugun.day)
-                  .length;
+                  .fold(0, (sum, s) => sum + s.ekmekAdedi);
             }
             return TabBar(
               controller: _tabController,
+              labelStyle:
+                  TextStyle(fontSize: 12), // Yazı boyutunu biraz küçültebiliriz
               tabs: [
-                Tab(child: Text('BUGÜN BEKLEYENLER ($bekleyenSayisi)')),
+                Tab(
+                  child: FittedBox(
+                    // Metin taşmasını önlemek için FittedBox eklendi
+                    fit: BoxFit.scaleDown,
+                    child:
+                        Text('BUGÜN BEKLEYEN (${bekleyenEkmekSayisi} Ekmek)'),
+                  ),
+                ),
                 const Tab(text: 'GEÇMİŞ SİPARİŞLER'),
               ],
             );
@@ -239,88 +210,87 @@ class _OrdersListScreenState extends State<OrdersListScreen>
     return FutureBuilder<List<Siparis>>(
       future: _siparislerFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting)
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
-        if (snapshot.hasError)
+        }
+        if (snapshot.hasError) {
           return Center(child: Text('Hata: ${snapshot.error}'));
+        }
+        if (!snapshot.hasData) {
+          return const Center(child: Text('Sipariş bulunamadı.'));
+        }
 
         List<Siparis> filtrelenmisSiparisler;
         String emptyMessage;
 
         if (durum == SiparisDurum.Bekliyor) {
-          final bugun = DateTime.now();
-          filtrelenmisSiparisler = snapshot.data
-                  ?.where((s) =>
-                      s.durum == SiparisDurum.Bekliyor &&
-                      s.teslimTarihi.year == bugun.year &&
-                      s.teslimTarihi.month == bugun.month &&
-                      s.teslimTarihi.day == bugun.day)
-                  .toList() ??
-              [];
-          emptyMessage = 'Bugün için bekleyen sipariş yok.';
+          filtrelenmisSiparisler = snapshot.data!
+              .where((s) => s.durum == SiparisDurum.Bekliyor)
+              .toList();
+          emptyMessage = 'Bekleyen sipariş bulunmamaktadır.';
         } else {
-          filtrelenmisSiparisler = snapshot.data
-                  ?.where((s) => s.durum == SiparisDurum.TeslimEdildi)
-                  .toList() ??
-              [];
-          emptyMessage = 'Henüz teslim edilen sipariş yok.';
+          filtrelenmisSiparisler = snapshot.data!
+              .where((s) => s.durum == SiparisDurum.TeslimEdildi)
+              .toList();
+          emptyMessage = 'Geçmiş sipariş bulunmamaktadır.';
         }
 
         if (filtrelenmisSiparisler.isEmpty) {
-          return Center(
-              child: Text(emptyMessage,
-                  style: const TextStyle(fontSize: 18, color: Colors.grey)));
+          return Center(child: Text(emptyMessage));
         }
 
         return ListView.builder(
           itemCount: filtrelenmisSiparisler.length,
           itemBuilder: (ctx, index) {
             final siparis = filtrelenmisSiparisler[index];
-            return Dismissible(
-              key: ValueKey(siparis.id),
-              background: Container(
-                  color: Theme.of(context).colorScheme.error,
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 20),
-                  child:
-                      const Icon(Icons.delete, color: Colors.white, size: 30)),
-              direction: DismissDirection.endToStart,
-              confirmDismiss: (direction) => showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                          title: const Text('Emin misiniz?'),
-                          content: const Text(
-                              'Bu siparişi kalıcı olarak silmek istediğinizden emin misiniz?'),
-                          actions: [
-                            TextButton(
-                                onPressed: () => Navigator.of(ctx).pop(false),
-                                child: const Text('Hayır')),
-                            TextButton(
-                                onPressed: () => Navigator.of(ctx).pop(true),
-                                child: const Text('Evet, Sil'))
-                          ])),
-              onDismissed: (direction) => _siparisSil(siparis.id),
-              child: Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                elevation: 4,
-                child: ListTile(
-                  onTap: () => _siparisDuzenle(siparis),
-                  title: Text(
-                      '${siparis.musteriAdi} - ${siparis.ekmekAdedi} Adet',
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(
-                      'Teslim: ${DateFormat.yMMMMd('tr_TR').format(siparis.teslimTarihi)}'),
-                  trailing: durum == SiparisDurum.Bekliyor
-                      ? IconButton(
-                          icon: const Icon(Icons.check_circle_outline,
-                              color: Colors.green, size: 30),
-                          tooltip: 'Teslim Edildi Olarak İşaretle',
-                          onPressed: () => _siparisDurumunuGuncelle(siparis))
-                      : (siparis.odemeAlindiMi
-                          ? Icon(Icons.check_circle,
-                              color: Colors.green.shade700)
-                          : Icon(Icons.check_circle_outline,
-                              color: Colors.grey)),
+            return Card(
+              margin: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 4,
+              ),
+              child: ListTile(
+                leading: Icon(
+                  durum == SiparisDurum.Bekliyor
+                      ? Icons.pending_actions_outlined // Bekleyen sipariş ikonu
+                      : Icons
+                          .check_circle_outline, // Teslim edilmiş sipariş ikonu
+                  color: durum == SiparisDurum.Bekliyor
+                      ? Theme.of(context).colorScheme.secondary
+                      : Colors.green,
+                  size: 36,
+                ),
+                title: Text(siparis.musteriAdi),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Teslim Tarihi: ${DateFormat('dd.MM.yyyy').format(siparis.teslimTarihi)}',
+                    ),
+                    Text('Adet: ${siparis.ekmekAdedi}'),
+                    if (siparis.aciklama != null &&
+                        siparis.aciklama!.isNotEmpty)
+                      Text('Açıklama: ${siparis.aciklama}'),
+                  ],
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (durum == SiparisDurum.Bekliyor)
+                      IconButton(
+                        icon: const Icon(Icons.check_circle_outline),
+                        onPressed: () => _siparisDurumunuGuncelle(siparis),
+                        color: Colors.green,
+                      ),
+                    IconButton(
+                      icon: const Icon(Icons.edit),
+                      onPressed: () => _siparisDuzenle(siparis),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete),
+                      onPressed: () => _siparisSil(siparis.id),
+                      color: Colors.red,
+                    ),
+                  ],
                 ),
               ),
             );

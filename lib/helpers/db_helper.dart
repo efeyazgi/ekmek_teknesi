@@ -4,7 +4,7 @@ import 'dart:async';
 
 class DBHelper {
   static const String _dbName = 'ekmek_teknemiz.db';
-  static const int _dbVersion = 2;
+  static const int _dbVersion = 5;
   static sql.Database? _database;
 
   static Future<sql.Database> _getDatabaseInstance() async {
@@ -16,13 +16,15 @@ class DBHelper {
       onCreate: (db, version) async {
         final batch = db.batch();
         batch.execute(
-            'CREATE TABLE siparisler(id TEXT PRIMARY KEY, musteriId TEXT, musteriAdi TEXT, ekmekAdedi INTEGER, teslimTarihi TEXT, odemeAlindiMi INTEGER, durum TEXT, satilanEkmekTuru TEXT, notlar TEXT)');
+            'CREATE TABLE siparisler(id TEXT PRIMARY KEY, musteriId TEXT, musteriAdi TEXT, ekmekAdedi INTEGER, teslimTarihi TEXT, odemeAlindiMi INTEGER, durum TEXT, satilanEkmekTuru TEXT, notlar TEXT, aciklama TEXT, tutar REAL)');
         batch.execute(
             'CREATE TABLE uretim_kayitlari(id TEXT PRIMARY KEY, tarih TEXT, adet INTEGER)');
         batch.execute(
             'CREATE TABLE giderler(id TEXT PRIMARY KEY, tarih TEXT, giderTuru TEXT, aciklama TEXT, tutar REAL)');
         batch.execute(
             'CREATE TABLE musteriler(id TEXT PRIMARY KEY, adSoyad TEXT, telefon TEXT, notlar TEXT)');
+        batch.execute(
+            'CREATE TABLE stok_hareketleri(id TEXT PRIMARY KEY, tarih TEXT, adet INTEGER, tip TEXT, ekmekTuru TEXT, aciklama TEXT, birimFiyat REAL)');
         await batch.commit();
       },
       onUpgrade: (db, oldVersion, newVersion) async {
@@ -30,6 +32,18 @@ class DBHelper {
           await db.execute('ALTER TABLE siparisler ADD COLUMN durum TEXT');
           await db.execute(
               'ALTER TABLE siparisler ADD COLUMN satilanEkmekTuru TEXT');
+        }
+        if (oldVersion < 3) {
+          await db.execute(
+              'CREATE TABLE stok_hareketleri(id TEXT PRIMARY KEY, tarih TEXT, adet INTEGER, tip TEXT, aciklama TEXT, birimFiyat REAL)');
+          await db.execute('ALTER TABLE siparisler ADD COLUMN aciklama TEXT');
+        }
+        if (oldVersion < 4) {
+          await db.execute(
+              'ALTER TABLE stok_hareketleri ADD COLUMN ekmekTuru TEXT');
+        }
+        if (oldVersion < 5) {
+          await db.execute('ALTER TABLE siparisler ADD COLUMN tutar REAL');
         }
       },
     );

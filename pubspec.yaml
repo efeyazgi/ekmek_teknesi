@@ -39,6 +39,7 @@ flutter_launcher_icons:
   android: true
   ios: false
   image_path: "assets/images/icon.png"
+  adaptive_icon_foreground: "assets/images/foreground_icon.png" # Eklendi
   min_sdk_android: 21
 
 flutter:
@@ -46,3 +47,4 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/images/foreground_icon.png # Eklendi

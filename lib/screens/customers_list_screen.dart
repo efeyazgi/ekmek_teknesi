@@ -25,8 +25,9 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
 
   Future<List<Musteri>> _verileriCek() async {
     final dataList = await DBHelper.getData('musteriler');
-    return dataList.map((item) => Musteri.fromMap(item)).toList()
-      ..sort((a, b) => a.adSoyad.compareTo(b.adSoyad));
+    final musteriler = dataList.map((item) => Musteri.fromMap(item)).toList();
+    musteriler.sort((a, b) => a.adSoyad.compareTo(b.adSoyad));
+    return musteriler;
   }
 
   void _listeyiYenile() {
@@ -43,24 +44,39 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
 
   void _musteriDuzenle(Musteri musteri) {
     Navigator.of(context)
-        .push(
-          MaterialPageRoute(
-            builder: (ctx) => AddCustomerScreen(musteri: musteri),
-          ),
-        )
+        .push(MaterialPageRoute(
+            builder: (ctx) => AddCustomerScreen(musteri: musteri)))
         .then((_) => _listeyiYenile());
   }
 
   Future<void> _musteriSil(String id) async {
-    await DBHelper.delete('musteriler', id);
-    _listeyiYenile();
-    if (mounted)
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Müşteri silindi.'),
-          backgroundColor: Colors.green,
-        ),
-      );
+    final eminMisin = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Emin misiniz?'),
+        content: const Text(
+            'Bu müşteriyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.'),
+        actions: [
+          TextButton(
+            child: const Text('Hayır'),
+            onPressed: () => Navigator.of(ctx).pop(false),
+          ),
+          TextButton(
+            child: const Text('Evet, Sil'),
+            onPressed: () => Navigator.of(ctx).pop(true),
+          ),
+        ],
+      ),
+    );
+
+    if (eminMisin ?? false) {
+      await DBHelper.delete('musteriler', id);
+      _listeyiYenile();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Müşteri silindi.'), backgroundColor: Colors.green));
+      }
+    }
   }
 
   @override
@@ -90,60 +106,35 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
             itemCount: musteriler.length,
             itemBuilder: (ctx, index) {
               final musteri = musteriler[index];
-              return Dismissible(
-                key: ValueKey(musteri.id),
-                background: Container(
-                  color: Theme.of(context).colorScheme.error,
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 20),
-                  child: const Icon(
-                    Icons.delete,
-                    color: Colors.white,
-                    size: 30,
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 4),
+                child: ListTile(
+                  leading: Icon(
+                    Icons.person_outline,
+                    size: 40,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
-                ),
-                direction: DismissDirection.endToStart,
-                confirmDismiss: (direction) => showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Emin misiniz?'),
-                    content: const Text(
-                      'Bu müşteriyi silmek istediğinizden emin misiniz?',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(ctx).pop(false),
-                        child: const Text('Hayır'),
+                  title: Text(musteri.adSoyad),
+                  subtitle:
+                      musteri.telefon != null && musteri.telefon!.isNotEmpty
+                          ? Text(musteri.telefon!)
+                          : null,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.edit,
+                            color: Theme.of(context).primaryColor),
+                        onPressed: () => _musteriDuzenle(musteri),
                       ),
-                      TextButton(
-                        onPressed: () => Navigator.of(ctx).pop(true),
-                        child: const Text('Evet, Sil'),
+                      IconButton(
+                        icon: Icon(Icons.delete,
+                            color: Theme.of(context).colorScheme.error),
+                        onPressed: () => _musteriSil(musteri.id),
                       ),
                     ],
                   ),
-                ),
-                onDismissed: (direction) => _musteriSil(musteri.id),
-                child: Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 6,
-                  ),
-                  child: ListTile(
-                    onTap: () => _musteriDuzenle(musteri),
-                    leading: CircleAvatar(
-                      child: Text(
-                        musteri.adSoyad.isNotEmpty ? musteri.adSoyad[0] : '?',
-                      ),
-                    ),
-                    title: Text(
-                      musteri.adSoyad,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle:
-                        musteri.telefon != null && musteri.telefon!.isNotEmpty
-                        ? Text(musteri.telefon!)
-                        : null,
-                  ),
+                  onTap: () => _musteriDuzenle(musteri),
                 ),
               );
             },

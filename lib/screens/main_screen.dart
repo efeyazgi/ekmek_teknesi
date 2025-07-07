@@ -5,6 +5,7 @@ import 'customers_list_screen.dart';
 import 'expenses_list_screen.dart';
 import 'reports_screen.dart';
 import 'settings_screen.dart';
+import 'stok_yonetimi_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -15,9 +16,6 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _seciliSayfaIndex = 0;
   final PageController _pageController = PageController();
-
-  // GÜNCELLENDİ: Hatalı initState metodu kaldırıldı.
-  // Bu metot artık gerekli değil.
 
   @override
   void dispose() {
@@ -37,6 +35,7 @@ class _MainScreenState extends State<MainScreen> {
       'Siparişler',
       'Müşteriler',
       'Giderler',
+      'Stok',
       'Raporlar',
       'Ayarlar'
     ];
@@ -46,7 +45,8 @@ class _MainScreenState extends State<MainScreen> {
             ? Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Image.asset('assets/images/icon.png', height: 32),
+                  Image.asset('assets/images/foreground_icon.png',
+                      height: 40), // Değiştirildi
                   const SizedBox(width: 8),
                   Text(sayfaBasliklari[0]),
                 ],
@@ -62,6 +62,7 @@ class _MainScreenState extends State<MainScreen> {
           OrdersListScreen(),
           CustomersListScreen(),
           ExpensesListScreen(),
+          StokYonetimiScreen(),
           ReportsScreen(),
           SettingsScreen(),
         ],
@@ -69,6 +70,7 @@ class _MainScreenState extends State<MainScreen> {
       bottomNavigationBar: BottomNavigationBar(
         onTap: _sayfaGec,
         currentIndex: _seciliSayfaIndex,
+        type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
               icon: Icon(Icons.dashboard), label: 'Ana Ekran'),
@@ -78,6 +80,7 @@ class _MainScreenState extends State<MainScreen> {
               icon: Icon(Icons.people), label: 'Müşteriler'),
           BottomNavigationBarItem(
               icon: Icon(Icons.receipt_long), label: 'Giderler'),
+          BottomNavigationBarItem(icon: Icon(Icons.inventory), label: 'Stok'),
           BottomNavigationBarItem(
               icon: Icon(Icons.bar_chart), label: 'Raporlar'),
           BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Ayarlar'),
