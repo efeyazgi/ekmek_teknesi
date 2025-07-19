@@ -1,52 +1,57 @@
-# Flutter/Dart için temel .gitignore
-
-# Dart/Pub
+# Flutter build klasörleri
+build/
 .dart_tool/
 .packages
 .pub-cache/
-build/
-.idea/
-*.iml
-
-# Flutter-specific
-.flutter-plugins
-.flutter-plugins-dependencies
 .flutter-plugins
 .flutter-plugins-dependencies
 .melos_tool/
-generated_plugin_registrant.dart
-
-# IDE'ler
-.vscode/
-*.swp
-
-# iOS
-ios/Pods/
-ios/Runner.xcworkspace/
-ios/Flutter/Flutter.framework/
-ios/Flutter/Flutter.podspec
-ios/ServiceDefinitions.json
+coverage/
 
 # Android
-android/.gradle/
-android/local.properties
-android/app/debug/
-android/app/release/
-android/key.properties
+android/app/debug
+android/app/profile
+android/app/release
+*.apk
+*.aab
+*.ap_
 
-# Web
-web/.dart_tool/
+# iOS
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/.symlinks
+ios/Pods
+ios/Runner.xcworkspace
+DerivedData/
+.xcresult
 
-# macOS
+# IDE/editor ayarları
+.idea/
+.vscode/
+*.iml
+
+# macOS/Linux/Windows/desktop
 macos/Flutter/ephemeral/
+windows/Flutter/ephemeral/
+linux/Flutter/ephemeral/
 
-# Windows
-windows/flutter/ephemeral/
-
-# Linux
-linux/flutter/ephemeral/
-
-# Other
+# Kişisel çıktılar / test logları
 *.log
 *.tmp
+*.swp
+
+# DB dosyaları (yedeklemeler)
+*.db
+*.db-journal
+
+# Env/Secrets
+.env
+.env.*
+
+# Firebase / Google servis ayarları (isteğe bağlı)
+google-services.json
+GoogleService-Info.plist
+
+# Diğer
 *.lock
+.DS_Store
