@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:share_plus/share_plus.dart'; // YENİ EKLENDİ
+import 'package:share_plus/share_plus.dart';
 import '../helpers/db_helper.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -85,24 +85,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (newTime != null) setState(() => _reportTime = newTime);
   }
 
-  // GÜNCELLENDİ: Bu metot artık share_plus paketini kullanıyor.
   Future<void> _verileriDisaAktar() async {
-    if (mounted)
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Yedek dosyası oluşturuluyor...')));
+    }
     try {
       final dbPath = await DBHelper.getDatabasePath();
       final timestamp = DateFormat('yyyy-MM-dd_HH-mm').format(DateTime.now());
       final fileName = 'ekmek_teknemiz_yedek_$timestamp.db';
 
-      // Dosyayı XFile olarak paylaşıyoruz.
       final xFile = XFile(dbPath, name: fileName);
       await Share.shareXFiles([xFile], text: 'Ekmek Teknesi Veri Yedeği');
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Yedekleme başarısız: $e'),
             backgroundColor: Colors.red));
+      }
     }
   }
 
@@ -130,10 +130,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ));
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Geri yükleme başarısız: $e'),
             backgroundColor: Colors.red));
+      }
     }
   }
 
@@ -150,6 +151,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return _isLoading
         ? const Center(child: CircularProgressIndicator())
         : Scaffold(
+            appBar: AppBar(
+              title: const Text('Ayarlar'),
+              centerTitle: true,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
             body: SingleChildScrollView(
               padding:
                   const EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0),
@@ -172,9 +181,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                   const SizedBox(height: 40),
-                  Center(
-                      child: Text('Efe YAZGI tarafından geliştirilmiştir.',
-                          style: Theme.of(context).textTheme.bodySmall)),
+                  ListTile(
+                    leading: const Icon(Icons.info_outline),
+                    title: const Text('Hakkında'),
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Hakkında'),
+                          content: const Text(
+                              'Bu uygulama Efe Yazgı tarafından geliştirilmiştir.\nİletişim: efeyazgi@yahoo.com'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(),
+                              child: const Text('Kapat'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.privacy_tip_outlined),
+                    title: const Text('Gizlilik Politikası'),
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Gizlilik Politikası'),
+                          content: const Text(
+                              'Uygulama, müşteri adı ve telefon gibi verileri sadece cihazınızda saklar ve üçüncü şahıslarla paylaşmaz. Her türlü soru için efeyazgi@yahoo.com adresine ulaşabilirsiniz.'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(),
+                              child: const Text('Kapat'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),

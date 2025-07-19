@@ -20,68 +20,12 @@ class _StokYonetimiScreenState extends State<StokYonetimiScreen> {
     _loadStok();
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _loadStok();
-  }
-
   void _loadStok() {
     if (mounted) {
       setState(() {
         _stokFuture = StokHelper.calculateStock();
       });
     }
-  }
-
-  bool _isSameDay(DateTime date1, DateTime date2) {
-    return date1.year == date2.year &&
-        date1.month == date2.month &&
-        date1.day == date2.day;
-  }
-
-  Future<Map<String, int>> _getStok() async {
-    final hareketlerData = await DBHelper.getData('stok_hareketleri');
-    final hareketler =
-        hareketlerData.map((e) => StokHareketi.fromMap(e)).toList();
-
-    final bugun = DateTime.now();
-    final dun = bugun.subtract(const Duration(days: 1));
-
-    // Dünkü Stok
-    final dunUretilen = hareketler
-        .where(
-            (h) => h.tip == StokHareketiTipi.Uretim && _isSameDay(h.tarih, dun))
-        .fold(0, (sum, h) => sum + h.adet);
-    final dunTazeCikis = hareketler
-        .where((h) =>
-            h.ekmekTuru == EkmekTuru.Taze &&
-            h.tip != StokHareketiTipi.Uretim &&
-            _isSameDay(h.tarih, dun))
-        .fold(0, (sum, h) => sum + h.adet);
-    final duneDevredenTazeStok = dunUretilen - dunTazeCikis;
-    final bugunDunkuStokCikisi = hareketler
-        .where((h) =>
-            h.ekmekTuru == EkmekTuru.Dunku &&
-            h.tip != StokHareketiTipi.Uretim &&
-            _isSameDay(h.tarih, bugun))
-        .fold(0, (sum, h) => sum + h.adet);
-    final anlikDunkuStok = duneDevredenTazeStok - bugunDunkuStokCikisi;
-
-    // Taze Stok
-    final bugunUretilen = hareketler
-        .where((h) =>
-            h.tip == StokHareketiTipi.Uretim && _isSameDay(h.tarih, bugun))
-        .fold(0, (sum, h) => sum + h.adet);
-    final bugunTazeCikis = hareketler
-        .where((h) =>
-            h.ekmekTuru == EkmekTuru.Taze &&
-            h.tip != StokHareketiTipi.Uretim &&
-            _isSameDay(h.tarih, bugun))
-        .fold(0, (sum, h) => sum + h.adet);
-    final anlikTazeStok = bugunUretilen - bugunTazeCikis;
-
-    return {'tazeStok': anlikTazeStok, 'dunkuStok': anlikDunkuStok};
   }
 
   Future<void> _stokGuncelle(
@@ -157,7 +101,16 @@ class _StokYonetimiScreenState extends State<StokYonetimiScreen> {
               return const Center(child: CircularProgressIndicator());
             }
             if (snapshot.hasError) {
-              return Center(child: Text('Hata: ${snapshot.error}'));
+              // Hata durumunda kullanıcıya daha anlamlı bir mesaj gösterelim.
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    'Stok verileri yüklenirken bir hata oluştu.\nLütfen daha sonra tekrar deneyin.\n\nHata: ${snapshot.error}',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              );
             }
             if (!snapshot.hasData || snapshot.data == null) {
               return const Center(child: Text('Stok verisi bulunamadı.'));
@@ -167,7 +120,6 @@ class _StokYonetimiScreenState extends State<StokYonetimiScreen> {
             final dunkuStok = snapshot.data!['dunkuStok']!;
 
             return Padding(
-              // Üstten boşluk için Padding eklendi
               padding: const EdgeInsets.only(top: 20.0),
               child: Center(
                 child: Column(
@@ -177,8 +129,8 @@ class _StokYonetimiScreenState extends State<StokYonetimiScreen> {
                       context,
                       'Taze Ekmek',
                       tazeStok,
-                      Colors.teal.shade700, // Yazı rengi
-                      Colors.teal.shade50, // Kart arka plan rengi
+                      Colors.teal.shade700,
+                      Colors.teal.shade50,
                       () => _stokGuncelle(context, EkmekTuru.Taze, tazeStok),
                     ),
                     const SizedBox(height: 20),
@@ -186,8 +138,8 @@ class _StokYonetimiScreenState extends State<StokYonetimiScreen> {
                       context,
                       'Dünkü Ekmek',
                       dunkuStok,
-                      Colors.amber.shade800, // Yazı rengi
-                      Colors.amber.shade50, // Kart arka plan rengi
+                      Colors.amber.shade800,
+                      Colors.amber.shade50,
                       () => _stokGuncelle(context, EkmekTuru.Dunku, dunkuStok),
                     ),
                   ],
@@ -202,32 +154,45 @@ class _StokYonetimiScreenState extends State<StokYonetimiScreen> {
 
   Widget _buildStokKarti(BuildContext context, String title, int adet,
       Color textColor, Color cardBackgroundColor, VoidCallback onTap) {
-    // cardBackgroundColor eklendi
     return GestureDetector(
       onTap: onTap,
       child: Card(
         elevation: 6,
-        color: cardBackgroundColor, // Kartın arka plan rengi ayarlandı
+        color: cardBackgroundColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Container(
           width: 200,
           height: 150,
           padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              Text(title,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: textColor
-                          .withOpacity(0.8) // Başlık için de uyumlu bir renk
-                      )),
-              const SizedBox(height: 10),
-              Text(
-                adet.toString(),
-                style: TextStyle(
-                    fontSize: 48,
-                    fontWeight: FontWeight.bold,
-                    color: textColor), // textColor parametresi kullanılıyor
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(title,
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(color: textColor.withOpacity(0.8))),
+                  const SizedBox(height: 10),
+                  Text(
+                    adet.toString(),
+                    style: TextStyle(
+                        fontSize: 48,
+                        fontWeight: FontWeight.bold,
+                        color: textColor),
+                  ),
+                ],
+              ),
+              Positioned(
+                bottom: 8,
+                right: 8,
+                child: Icon(
+                  Icons.edit,
+                  color: textColor.withOpacity(0.5),
+                  size: 18,
+                ),
               ),
             ],
           ),
@@ -253,13 +218,16 @@ class _StokHareketiEkleDialogState extends State<StokHareketiEkleDialog> {
 
   void _kaydet() {
     if (_formKey.currentState!.validate()) {
+      final adet = int.parse(_adetController.text);
+      // Üretim ise stok artar (pozitif), diğer durumlarda stok azalır (negatif).
+      final islemAdedi = _secilenTip == StokHareketiTipi.Uretim ? adet : -adet;
+
       final hareket = StokHareketi(
         tarih: DateTime.now(),
-        adet:
-            -int.parse(_adetController.text), // Stoktan düşüleceği için negatif
+        adet: islemAdedi,
         tip: _secilenTip,
         ekmekTuru: _secilenTip == StokHareketiTipi.Uretim
-            ? EkmekTuru.Taze
+            ? EkmekTuru.Taze // Üretim her zaman taze ekmektir
             : _secilenEkmekTuru,
         aciklama: _aciklamaController.text,
       );
@@ -270,7 +238,9 @@ class _StokHareketiEkleDialogState extends State<StokHareketiEkleDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Stoktan Düş'),
+      title: Text(_secilenTip == StokHareketiTipi.Uretim
+          ? 'Üretim Ekle'
+          : 'Stoktan Düş'),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -279,34 +249,48 @@ class _StokHareketiEkleDialogState extends State<StokHareketiEkleDialog> {
             children: [
               DropdownButtonFormField<StokHareketiTipi>(
                 value: _secilenTip,
-                items: [
-                  StokHareketiTipi.KendiKullanim,
-                  StokHareketiTipi.UcretsizVerilen,
-                  StokHareketiTipi.Bozulan
-                ].map((tip) {
-                  return DropdownMenuItem(
-                    value: tip,
-                    child: Text(tip.displayName),
-                  );
-                }).toList(),
+                items: StokHareketiTipi.values
+                    .map((tip) {
+                      // Sayım Düzeltme manuel olarak buradan eklenmemeli.
+                      if (tip == StokHareketiTipi.SayimDuzeltme) {
+                        return null;
+                      }
+                      return DropdownMenuItem(
+                        value: tip,
+                        child: Text(tip.displayName),
+                      );
+                    })
+                    .whereType<DropdownMenuItem<StokHareketiTipi>>()
+                    .toList(),
                 onChanged: (value) {
-                  if (value != null) setState(() => _secilenTip = value);
+                  if (value != null) {
+                    setState(() {
+                      _secilenTip = value;
+                    });
+                  }
                 },
                 decoration: const InputDecoration(labelText: 'Hareket Tipi'),
               ),
-              DropdownButtonFormField<EkmekTuru>(
-                value: _secilenEkmekTuru,
-                items: EkmekTuru.values.map((tur) {
-                  return DropdownMenuItem(value: tur, child: Text(tur.name));
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) setState(() => _secilenEkmekTuru = value);
-                },
-                decoration: const InputDecoration(labelText: 'Ekmek Türü'),
-              ),
+              // Üretim seçildiğinde ekmek türü seçeneğini gizle
+              if (_secilenTip != StokHareketiTipi.Uretim)
+                DropdownButtonFormField<EkmekTuru>(
+                  value: _secilenEkmekTuru,
+                  items: EkmekTuru.values.map((tur) {
+                    return DropdownMenuItem(
+                        value: tur, child: Text(tur.displayName));
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null)
+                      setState(() => _secilenEkmekTuru = value);
+                  },
+                  decoration: const InputDecoration(labelText: 'Ekmek Türü'),
+                ),
               TextFormField(
                 controller: _adetController,
-                decoration: const InputDecoration(labelText: 'Düşülecek Adet'),
+                decoration: InputDecoration(
+                    labelText: _secilenTip == StokHareketiTipi.Uretim
+                        ? 'Üretilen Adet'
+                        : 'Düşülecek Adet'),
                 keyboardType: TextInputType.number,
                 validator: (value) {
                   if (value == null ||
@@ -335,7 +319,9 @@ class _StokHareketiEkleDialogState extends State<StokHareketiEkleDialog> {
         ),
         ElevatedButton(
           onPressed: _kaydet,
-          child: const Text('Stoktan Düş'),
+          child: Text(_secilenTip == StokHareketiTipi.Uretim
+              ? 'Üretimi Kaydet'
+              : 'Stoktan Düş'),
         ),
       ],
     );

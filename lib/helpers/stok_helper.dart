@@ -61,7 +61,8 @@ class StokHelper {
     final bugunTeslimEdilenDunku = siparisler
         .where((s) =>
             s.durum == SiparisDurum.TeslimEdildi &&
-            s.satilanEkmekTuru == EkmekTuru.Dunku &&
+            s.satilanEkmekTuru ==
+                EkmekTuru.Dunku && // "Dünkü" yerine "Dunku" kullanılmalı
             _isSameDay(s.teslimTarihi, bugun))
         .fold(0, (t, s) => t + s.ekmekAdedi);
 

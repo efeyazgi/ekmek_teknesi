@@ -1,16 +1,12 @@
 import 'package:ekmek_teknesi/models/gider.dart';
-import 'package:ekmek_teknesi/models/uretim_kaydi.dart';
 import 'package:ekmek_teknesi/helpers/preferences_helper.dart';
 import 'package:ekmek_teknesi/helpers/notification_helper.dart';
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
 import 'add_order_screen.dart';
 import 'add_expense_screen.dart';
 import '../helpers/db_helper.dart';
 import '../models/siparis.dart';
 import '../models/stok_hareketi.dart';
-import 'package:intl/intl.dart';
-import '../screens/stok_yonetimi_screen.dart';
 import 'package:ekmek_teknesi/helpers/stok_helper.dart';
 
 class DashboardScreen extends StatefulWidget {

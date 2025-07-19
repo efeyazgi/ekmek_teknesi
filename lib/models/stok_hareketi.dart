@@ -72,7 +72,7 @@ class StokHareketi {
         // Eklendi
         (e) => e.name == map['ekmekTuru'],
         orElse: () =>
-            EkmekTuru.Taze, // Eski kayıtlarda sorun olmaması için varsayılan
+            EkmekTuru.Dunku, // Eski kayıtlarda sorun olmaması için varsayılan
       ),
       aciklama: map['aciklama'],
       birimFiyat: map['birimFiyat'],

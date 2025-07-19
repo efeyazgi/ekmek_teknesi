@@ -36,11 +36,20 @@ class _MainScreenState extends State<MainScreen> {
       'Müşteriler',
       'Giderler',
       'Stok',
-      'Raporlar',
-      'Ayarlar'
+      // 'Raporlar', // Kaldırıldı
+      // 'Ayarlar' // Kaldırıldı
     ];
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.bar_chart),
+          tooltip: 'Raporlar',
+          onPressed: () {
+            Navigator.of(context).push(MaterialPageRoute(
+              builder: (context) => const ReportsScreen(),
+            ));
+          },
+        ),
         title: _seciliSayfaIndex == 0
             ? Row(
                 mainAxisSize: MainAxisSize.min,
@@ -53,6 +62,17 @@ class _MainScreenState extends State<MainScreen> {
               )
             : Text(sayfaBasliklari[_seciliSayfaIndex]),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Ayarlar',
+            onPressed: () {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (context) => const SettingsScreen(),
+              ));
+            },
+          ),
+        ],
       ),
       body: PageView(
         controller: _pageController,
@@ -63,8 +83,6 @@ class _MainScreenState extends State<MainScreen> {
           CustomersListScreen(),
           ExpensesListScreen(),
           StokYonetimiScreen(),
-          ReportsScreen(),
-          SettingsScreen(),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -81,9 +99,9 @@ class _MainScreenState extends State<MainScreen> {
           BottomNavigationBarItem(
               icon: Icon(Icons.receipt_long), label: 'Giderler'),
           BottomNavigationBarItem(icon: Icon(Icons.inventory), label: 'Stok'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.bar_chart), label: 'Raporlar'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Ayarlar'),
+          // BottomNavigationBarItem(
+          //     icon: Icon(Icons.bar_chart), label: 'Raporlar'), // Kaldırıldı
+          // BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Ayarlar'), // Kaldırıldı
         ],
       ),
     );

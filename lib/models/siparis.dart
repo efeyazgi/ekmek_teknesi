@@ -4,6 +4,19 @@ enum SiparisDurum { Bekliyor, TeslimEdildi, Iptal }
 
 enum EkmekTuru { Taze, Dunku }
 
+extension EkmekTuruExtension on EkmekTuru {
+  String get displayName {
+    switch (this) {
+      case EkmekTuru.Taze:
+        return 'Taze';
+      case EkmekTuru.Dunku:
+        return 'Dünkü';
+      default:
+        return '';
+    }
+  }
+}
+
 class Siparis {
   final String id;
   final String? musteriId;

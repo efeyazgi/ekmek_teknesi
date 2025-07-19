@@ -149,9 +149,10 @@ class _OrdersListScreenState extends State<OrdersListScreen>
   Future<void> _siparisSil(String id) async {
     await DBHelper.delete('siparisler', id);
     _listeyiYenile();
-    if (mounted)
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Sipariş silindi.'), backgroundColor: Colors.green));
+    }
   }
 
   @override
@@ -175,15 +176,14 @@ class _OrdersListScreenState extends State<OrdersListScreen>
             }
             return TabBar(
               controller: _tabController,
-              labelStyle:
-                  TextStyle(fontSize: 12), // Yazı boyutunu biraz küçültebiliriz
+              labelStyle: const TextStyle(
+                  fontSize: 12), // Yazı boyutunu biraz küçültebiliriz
               tabs: [
                 Tab(
                   child: FittedBox(
                     // Metin taşmasını önlemek için FittedBox eklendi
                     fit: BoxFit.scaleDown,
-                    child:
-                        Text('BUGÜN BEKLEYEN (${bekleyenEkmekSayisi} Ekmek)'),
+                    child: Text('BUGÜN BEKLEYEN ($bekleyenEkmekSayisi Ekmek)'),
                   ),
                 ),
                 const Tab(text: 'GEÇMİŞ SİPARİŞLER'),

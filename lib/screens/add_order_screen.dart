@@ -98,11 +98,45 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
         ),
       ),
     );
-    if (secilen != null)
+    if (secilen != null) {
       setState(() {
         _seciliMusteri = secilen;
         _musteriAdiController.text = secilen.adSoyad;
       });
+    }
+  }
+
+  void _adetSecDialogGoster() async {
+    final controller = TextEditingController(text: _ekmekAdedi.toString());
+    final yeniAdet = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Ekmek Adedini Girin'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Adet'),
+        ),
+        actions: [
+          TextButton(
+            child: const Text('İptal'),
+            onPressed: () => Navigator.of(ctx).pop(),
+          ),
+          ElevatedButton(
+            child: const Text('Onayla'),
+            onPressed: () =>
+                Navigator.of(ctx).pop(int.tryParse(controller.text)),
+          ),
+        ],
+      ),
+    );
+
+    if (yeniAdet != null && yeniAdet > 0) {
+      setState(() {
+        _ekmekAdedi = yeniAdet;
+      });
+    }
   }
 
   @override
@@ -168,35 +202,41 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                   'Ekmek Adedi',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      icon: const Icon(
-                        Icons.remove_circle,
-                        color: Colors.red,
-                        size: 36,
+                GestureDetector(
+                  onTap: _adetSecDialogGoster,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(
+                          Icons.remove_circle,
+                          color: Colors.red,
+                          size: 36,
+                        ),
+                        onPressed: () {
+                          if (_ekmekAdedi > 1) setState(() => _ekmekAdedi--);
+                        },
                       ),
-                      onPressed: () {
-                        if (_ekmekAdedi > 1) setState(() => _ekmekAdedi--);
-                      },
-                    ),
-                    Text(
-                      '$_ekmekAdedi',
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Text(
+                          '$_ekmekAdedi',
+                          style: const TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.add_circle,
-                        color: Colors.green,
-                        size: 36,
+                      IconButton(
+                        icon: const Icon(
+                          Icons.add_circle,
+                          color: Colors.green,
+                          size: 36,
+                        ),
+                        onPressed: () => setState(() => _ekmekAdedi++),
                       ),
-                      onPressed: () => setState(() => _ekmekAdedi++),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 24),
                 const Text(
@@ -223,8 +263,9 @@ class _AddOrderScreenState extends State<AddOrderScreen> {
                             const Duration(days: 365),
                           ),
                         );
-                        if (secilen != null)
+                        if (secilen != null) {
                           setState(() => _seciliTarih = secilen);
+                        }
                       },
                     ),
                   ],
